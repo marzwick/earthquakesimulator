@@ -12,7 +12,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from earthquake_simulation import (
-    Building, Earthquake, create_sf_san_mateo_buildings as create_sf_buildings,
+    Building, Earthquake, create_sf_buildings,
     calculate_damage, calculate_distance
 )
 
@@ -145,7 +145,7 @@ if st.button("🌋 RUN EARTHQUAKE SIMULATION", use_container_width=True):
         epicenter_lon=epicenter_lon,
         depth_km=depth
     )
-    st.session_state.buildings = create_sf_san_mateo_buildings()
+    st.session_state.buildings = create_sf_buildings()
     
     # Calculate damage for all buildings
     results = []
