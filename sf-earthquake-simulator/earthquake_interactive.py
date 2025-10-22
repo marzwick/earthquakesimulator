@@ -1,6 +1,7 @@
 """
-San Francisco Earthquake Simulator
-Professional seismic risk assessment platform
+San Francisco Bay Area Earthquake Vulnerability Simulator
+Interactive tool demonstrating physical + social vulnerability
+Supports GIS vulnerability analysis for SF and San Mateo Counties
 """
 
 import streamlit as st
@@ -9,731 +10,572 @@ from folium import plugins
 from streamlit_folium import st_folium
 import pandas as pd
 import numpy as np
-import time
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from earthquake_simulation import (
-    Building, Earthquake, create_sf_buildings,
+from earthquake_simulation_enhanced import (
+    Building, Earthquake, create_sf_san_mateo_buildings,
     calculate_damage, calculate_distance
 )
 
-
 # Page configuration
 st.set_page_config(
-    page_title="SF Earthquake Simulator",
+    page_title="SF Bay Earthquake Vulnerability Simulator",
     page_icon="⚡",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
-# Custom CSS - Complete redesign to look nothing like Streamlit
+# Custom CSS
 st.markdown("""
     <style>
-    /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
-
-    /* Complete background redesign */
+    
     .main {
         background: #0a0e27;
         color: #e8eaf6;
-        padding: 0 !important;
     }
-
-    .block-container {
-        padding: 2rem 3rem !important;
-        max-width: 100% !important;
-    }
-
-    /* Custom header styling */
-    .custom-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2.5rem 3rem;
-        margin: -2rem -3rem 2rem -3rem;
-        border-bottom: 4px solid #ffd700;
-        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
-    }
-
-    .custom-header h1 {
-        color: #ffffff !important;
-        font-size: 2.8rem !important;
-        font-weight: 800 !important;
-        margin: 0 !important;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
-
-    .custom-header p {
-        color: #e0e0e0 !important;
-        font-size: 1.15rem !important;
-        margin: 0.5rem 0 0 0 !important;
-    }
-
-    /* Headings */
-    h3 {
-        color: #ffd700 !important;
-        font-size: 1.3rem !important;
-        margin-bottom: 1rem !important;
-        padding-bottom: 0.5rem;
-        border-bottom: 1px solid rgba(102, 126, 234, 0.4);
-    }
-
-    h4 {
-        color: #ffd700 !important;
-        margin-top: 0 !important;
-        font-size: 1.1rem !important;
-    }
-
-    /* Metrics redesign */
-    [data-testid="stMetricValue"] {
-        color: #ffd700 !important;
-        font-size: 2.2rem !important;
-        font-weight: 800 !important;
-        text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-    }
-
-    [data-testid="stMetricLabel"] {
-        color: #b0bec5 !important;
-        font-size: 0.95rem !important;
-        font-weight: 600 !important;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
+    
     .stMetric {
         background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
         padding: 1rem;
         border-radius: 12px;
         border: 1px solid rgba(102, 126, 234, 0.3);
     }
-
-    /* Button redesign */
+    
+    h1 {
+        color: #ffd700 !important;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    h2, h3 {
+        color: #ffd700 !important;
+    }
+    
     .stButton > button {
         background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%) !important;
         color: white !important;
         border: none !important;
         border-radius: 12px !important;
-        padding: 1rem 2.5rem !important;
+        padding: 0.75rem 2rem !important;
         font-weight: 700 !important;
-        font-size: 1.2rem !important;
         text-transform: uppercase;
-        letter-spacing: 2px;
-        box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4) !important;
-        transition: all 0.3s !important;
     }
-
+    
     .stButton > button:hover {
-        transform: translateY(-3px) !important;
-        box-shadow: 0 10px 30px rgba(255, 107, 107, 0.6) !important;
-    }
-
-    /* Slider customization */
-    .stSlider {
-        padding: 1rem 0;
-    }
-
-    .stSlider > div > div > div > div {
-        background: #667eea !important;
-    }
-
-    .stSlider label {
-        color: #e8eaf6 !important;
-        font-weight: 600 !important;
-        font-size: 1rem !important;
-    }
-
-    /* Select box styling */
-    .stSelectbox label {
-        color: #e8eaf6 !important;
-        font-weight: 600 !important;
-    }
-
-    .stSelectbox > div > div {
-        background: rgba(42, 45, 74, 0.95) !important;
-        color: #e8eaf6 !important;
-        border: 2px solid #667eea !important;
-        border-radius: 8px !important;
-    }
-
-    .stSelectbox div[data-baseweb="select"] > div {
-        color: #e8eaf6 !important;
-    }
-
-    .stSelectbox option {
-        background: #2a2d4a !important;
-        color: #e8eaf6 !important;
-    }
-
-    /* Checkbox styling */
-    .stCheckbox label {
-        color: #e8eaf6 !important;
-        font-weight: 500 !important;
-    }
-
-    /* Tabs complete redesign */
-    .stTabs {
-        background: transparent;
-    }
-
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 0px;
-        background: linear-gradient(135deg, #1a1f3a 0%, #2a1f3a 100%);
-        border-radius: 12px;
-        padding: 0.5rem;
-        border: 2px solid #667eea;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        color: #b0bec5;
-        background: transparent;
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        border: none;
-    }
-
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white !important;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-
-    /* DataFrame styling */
-    .dataframe {
-        background: #1e2139 !important;
-        color: #e8eaf6 !important;
-        border: 2px solid #4a5080 !important;
-        border-radius: 8px !important;
-    }
-
-    .dataframe th {
-        background: #667eea !important;
-        color: white !important;
-        font-weight: 700 !important;
-    }
-
-    .dataframe td {
-        background: #2a2d4a !important;
-        color: #e8eaf6 !important;
-    }
-
-    /* Progress bar */
-    .stProgress > div > div > div > div {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%) !important;
-    }
-
-    /* Alert boxes */
-    .stAlert {
-        background: rgba(102, 126, 234, 0.1) !important;
-        border: 2px solid #667eea !important;
-        color: #e8eaf6 !important;
-        border-radius: 12px !important;
-    }
-
-    /* Map container fix */
-    .map-container {
-        width: 100%;
-        height: 650px;
-        border: 3px solid #667eea;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    }
-
-    /* Legend styling */
-    .legend-item {
-        display: flex;
-        align-items: center;
-        padding: 0.5rem;
-        margin: 0.3rem 0;
-        border-left: 3px solid;
-    }
-
-    .legend-color {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        margin-right: 0.6rem;
-        border: 2px solid rgba(255,255,255,0.3);
-    }
-
-
-    /* Download button */
-    .stDownloadButton > button {
-        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%) !important;
-        color: white !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-    }
-
-    /* Spinner */
-    .stSpinner > div {
-        border-top-color: #667eea !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Simple title
-st.markdown("<h2 style='text-align: center; color: #ffd700; margin-bottom: 2rem;'>San Francisco Earthquake Hazard Simulator</h2>", unsafe_allow_html=True)
+# Header
+st.markdown("""
+    <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                padding: 2rem; margin: -1rem -1rem 2rem -1rem; 
+                border-bottom: 4px solid #ffd700;'>
+        <h1 style='margin: 0; color: white !important;'>
+            🌉 SF Bay Area Earthquake Vulnerability Simulator
+        </h1>
+        <p style='color: #e0e0e0; font-size: 1.1rem; margin: 0.5rem 0 0 0;'>
+            Interactive Analysis of Physical Hazard + Social Vulnerability
+        </p>
+    </div>
+""", unsafe_allow_html=True)
 
-# Initialize session state
-if 'simulation_run' not in st.session_state:
-    st.session_state.simulation_run = False
-if 'damage_data' not in st.session_state:
-    st.session_state.damage_data = None
-if 'last_params' not in st.session_state:
-    st.session_state.last_params = None
-
-# Load buildings
-buildings = create_sf_buildings()
-
-# Control Panel
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    magnitude = st.slider(
-        "Magnitude (Mw)",
-        min_value=4.0,
-        max_value=8.0,
-        value=7.0,
-        step=0.1,
-        help="Moment magnitude scale (Kanamori, 1977)"
+# Sidebar controls
+with st.sidebar:
+    st.markdown("### ⚙️ Simulation Controls")
+    
+    # Earthquake parameters
+    magnitude = st.slider("Earthquake Magnitude (Mw)", 4.0, 8.0, 7.0, 0.1)
+    depth = st.slider("Focal Depth (km)", 1, 30, 10, 1)
+    
+    st.markdown("---")
+    st.markdown("### 📍 Epicenter Location")
+    
+    location_preset = st.selectbox(
+        "Select Location",
+        ["Financial District (SF)", "San Andreas Fault", "Hayward Fault", 
+         "Custom Location", "Pacifica Coastal", "South San Francisco"]
     )
-
-    if magnitude < 5.0:
-        st.markdown("<p style='color: #4CAF50; font-weight: bold;'>Light Event</p>", unsafe_allow_html=True)
-    elif magnitude < 6.0:
-        st.markdown("<p style='color: #FFC107; font-weight: bold;'>Moderate</p>", unsafe_allow_html=True)
-    elif magnitude < 7.0:
-        st.markdown("<p style='color: #FF9800; font-weight: bold;'>Strong</p>", unsafe_allow_html=True)
-    elif magnitude < 7.5:
-        st.markdown("<p style='color: #FF5722; font-weight: bold;'>Major</p>", unsafe_allow_html=True)
-    else:
-        st.markdown("<p style='color: #D32F2F; font-weight: bold;'>Catastrophic</p>", unsafe_allow_html=True)
-
-with col2:
-    epicenter_preset = st.selectbox(
-        "Fault Zone / Location",
-        ["Financial District", "Mission District", "Marina District",
-         "SOMA", "Hayward Fault", "San Andreas Fault", "Custom"]
-    )
-
-    epicenter_presets = {
-        "Financial District": (37.7949, -122.4194),
-        "Mission District": (37.7599, -122.4148),
-        "Marina District": (37.8021, -122.4383),
-        "SOMA": (37.7758, -122.4128),
-        "Hayward Fault": (37.6688, -122.0808),
-        "San Andreas Fault": (37.7000, -122.5000)
-    }
-
-    if epicenter_preset == "Custom":
+    
+    # Set epicenter based on preset
+    if location_preset == "Financial District (SF)":
+        epicenter_lat, epicenter_lon = 37.7949, -122.4194
+    elif location_preset == "San Andreas Fault":
+        epicenter_lat, epicenter_lon = 37.7089, -122.4664  # Near Daly City
+    elif location_preset == "Hayward Fault":
+        epicenter_lat, epicenter_lon = 37.6688, -122.0808
+    elif location_preset == "Pacifica Coastal":
+        epicenter_lat, epicenter_lon = 37.6139, -122.4869
+    elif location_preset == "South San Francisco":
+        epicenter_lat, epicenter_lon = 37.6547, -122.4077
+    else:  # Custom
         epicenter_lat = st.number_input("Latitude", value=37.7949, format="%.4f")
         epicenter_lon = st.number_input("Longitude", value=-122.4194, format="%.4f")
-    else:
-        epicenter_lat, epicenter_lon = epicenter_presets[epicenter_preset]
-        st.markdown(f"<small style='color: #ffd700;'>Coordinates: {epicenter_lat:.4f}, {epicenter_lon:.4f}</small>", unsafe_allow_html=True)
-
-with col3:
-    depth = st.slider(
-        "Focal Depth (km)",
-        min_value=5,
-        max_value=30,
-        value=10,
-        help="Earthquake depth below surface"
+    
+    st.markdown("---")
+    st.markdown("### 🎨 Visualization Options")
+    
+    show_heatmap = st.checkbox("Show Ground Motion Heatmap", value=True)
+    show_labels = st.checkbox("Show Building Labels", value=False)
+    color_by = st.selectbox(
+        "Color Buildings By",
+        ["Physical Damage", "Social Vulnerability", "Combined Vulnerability", "Recovery Time"]
     )
+    
+    st.markdown("---")
+    st.markdown("### 🔬 Social Vulnerability Factors")
+    st.markdown("""
+    This simulator integrates:
+    - 👴 Elderly population %
+    - 💰 Poverty rates
+    - 🏘️ Population density
+    - 📊 Social Vulnerability Index (SoVI)
+    
+    Based on Cutter et al. (2003) framework
+    """)
 
-    if depth < 15:
-        st.markdown("<p style='color: #FF9800; font-size: 0.9rem;'>Shallow (High Impact)</p>", unsafe_allow_html=True)
-    else:
-        st.markdown("<p style='color: #4CAF50; font-size: 0.9rem;'>Deep (Lower Impact)</p>", unsafe_allow_html=True)
-
-with col4:
-    show_pga = st.checkbox("Ground Motion Heatmap", value=True)
-    show_labels = st.checkbox("Building Names", value=True)
-    st.markdown("<br>", unsafe_allow_html=True)
-    run_simulation = st.button("ANALYZE", use_container_width=True, type="primary")
-
-# Create earthquake object
-earthquake = Earthquake(
-    magnitude=magnitude,
-    epicenter_lat=epicenter_lat,
-    epicenter_lon=epicenter_lon,
-    depth_km=depth
-)
-
-# Check if parameters changed - if so, recalculate automatically
-current_params = (magnitude, epicenter_lat, epicenter_lon, depth, epicenter_preset)
-params_changed = st.session_state.last_params != current_params
-
-if run_simulation or (st.session_state.simulation_run and params_changed):
+# Run simulation button
+if st.button("🌋 RUN EARTHQUAKE SIMULATION", use_container_width=True):
     st.session_state.simulation_run = True
-    st.session_state.last_params = current_params
+    st.session_state.earthquake = Earthquake(
+        magnitude=magnitude,
+        epicenter_lat=epicenter_lat,
+        epicenter_lon=epicenter_lon,
+        depth_km=depth
+    )
+    st.session_state.buildings = create_sf_san_mateo_buildings()
+    
+    # Calculate damage for all buildings
+    results = []
+    for building in st.session_state.buildings:
+        damage = calculate_damage(building, st.session_state.earthquake)
+        results.append(damage)
+    
+    st.session_state.results_df = pd.DataFrame(results)
 
-    with st.spinner('Calculating seismic wave propagation...'):
-        damage_results = []
-        progress_bar = st.progress(0)
-
-        for idx, building in enumerate(buildings):
-            damage = calculate_damage(building, earthquake)
-            damage_results.append(damage)
-            progress_bar.progress((idx + 1) / len(buildings))
-            time.sleep(0.02)
-
-        st.session_state.damage_data = pd.DataFrame(damage_results)
-        progress_bar.empty()
-        if run_simulation:
-            st.success('Analysis Complete')
-        else:
-            st.info('Parameters changed - damage recalculated')
-
-# Display results
-if st.session_state.simulation_run and st.session_state.damage_data is not None:
-    df = st.session_state.damage_data
-
-    # Metrics Dashboard
-    st.markdown("### IMPACT SUMMARY")
-
-    m1, m2, m3, m4, m5 = st.columns(5)
-
-    with m1:
-        st.metric("Event Magnitude", f"{magnitude:.1f} Mw")
-
-    with m2:
-        avg_damage = df['damage_percent'].mean()
-        st.metric("Mean Damage", f"{avg_damage:.1f}%")
-
-    with m3:
-        max_damage = df['damage_percent'].max()
-        st.metric("Peak Damage", f"{max_damage:.1f}%")
-
-    with m4:
-        critical = len(df[df['damage_state'].isin(['Extensive', 'Severe', 'Collapse'])])
-        st.metric("Critical Structures", f"{critical}")
-
-    with m5:
-        avg_pga = df['pga_g'].mean()
-        st.metric("Avg PGA", f"{avg_pga:.3f}g")
-
-    # Main visualization area - no tabs, just the map
-    # Animation controls - slider based
-    play_animation = st.checkbox("Show Wave Propagation Timeline", value=False)
-
-    if play_animation:
-        col_slider, col_info = st.columns([3, 1])
-
-        with col_slider:
-            time_step = st.slider(
-                "Drag to see waves expand over time (seconds after earthquake)",
-                min_value=0.0,
-                max_value=60.0,
-                value=10.0,
-                step=0.5
-            )
-
-        with col_info:
-            p_radius = time_step * 6.0
-            s_radius = time_step * 3.5
-            st.info(f"""
-            **t = {time_step:.1f}s**
-
-            P-wave: {p_radius:.1f} km
-            S-wave: {s_radius:.1f} km
-            """)
-    else:
-        time_step = 0.0
-
-    viz_col1, viz_col2 = st.columns([3.5, 1])
-
-    # Define damage colors (used by both map and legend)
-    damage_colors = {
-        "None": '#00ff00',
-        "Slight": '#adff2f',
-        "Moderate": '#ffff00',
-        "Extensive": '#ffa500',
-        "Severe": '#ff4500',
-        "Collapse": '#8b0000'
-    }
-
+# Display results if simulation has been run
+if hasattr(st.session_state, 'simulation_run') and st.session_state.simulation_run:
+    df = st.session_state.results_df
+    earthquake = st.session_state.earthquake
+    buildings = st.session_state.buildings
+    
+    # Key metrics
+    st.markdown("### 📊 Impact Summary")
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        avg_damage = df['physical_damage_percent'].mean()
+        st.metric("Avg Physical Damage", f"{avg_damage:.1f}%")
+    
+    with col2:
+        severe_count = len(df[df['damage_state'].isin(['Severe', 'Collapse'])])
+        st.metric("Severe+ Damage", f"{severe_count} bldgs")
+    
+    with col3:
+        avg_social_vuln = df['social_vulnerability_multiplier'].mean()
+        st.metric("Avg Social Vuln", f"{avg_social_vuln:.2f}x")
+    
+    with col4:
+        avg_recovery = df['estimated_recovery_days'].mean()
+        st.metric("Avg Recovery", f"{avg_recovery:.0f} days")
+    
+    with col5:
+        high_risk = len(df[df['combined_vulnerability_score'] > 50])
+        st.metric("High-Risk Buildings", f"{high_risk}")
+    
+    # Main visualization
+    st.markdown("---")
+    viz_col1, viz_col2 = st.columns([3, 1])
+    
     with viz_col1:
-        # INTERACTIVE FOLIUM MAP
-        # Calculate dynamic zoom based on wave radius when animating
-        if play_animation and time_step > 0:
-            # S-wave is larger, use it for bounds
-            wave_radius_km = time_step * 3.5
-            # Convert km to degrees (roughly 111 km per degree)
-            radius_deg = wave_radius_km / 111.0
-
-            # Calculate bounds to fit the wave
-            bounds = [
-                [epicenter_lat - radius_deg * 1.2, epicenter_lon - radius_deg * 1.2],
-                [epicenter_lat + radius_deg * 1.2, epicenter_lon + radius_deg * 1.2]
-            ]
-
-            # Create map centered on epicenter
-            m = folium.Map(
-                location=[epicenter_lat, epicenter_lon],
-                tiles='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                attr='CartoDB',
-                prefer_canvas=True,
-                zoom_control=True,
-                scrollWheelZoom=True
-            )
-
-            # Fit map to wave bounds
-            m.fit_bounds(bounds)
-        else:
-            # Static view centered on SF
-            m = folium.Map(
-                location=[37.7749, -122.4194],
-                zoom_start=13,
-                tiles='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                attr='CartoDB',
-                prefer_canvas=True,
-                zoom_control=True,
-                scrollWheelZoom=True
-            )
-
-        # Ground motion heatmap
-        if show_pga:
-            # San Francisco County approximate boundary polygon
-            # Simplified boundary coordinates (clockwise from northwest)
-            from shapely.geometry import Point, Polygon
-
-            sf_boundary = Polygon([
-                (-122.5145, 37.8105),  # NW - Point Lobos
-                (-122.3927, 37.8105),  # NE - Treasure Island
-                (-122.3480, 37.7083),  # SE - San Bruno Mountain
-                (-122.3927, 37.7083),  # S - near Daly City
-                (-122.5145, 37.7083),  # SW - Ocean/Pacific
-            ])
-
+        st.markdown("### 🗺️ Interactive Damage Map")
+        
+        # Create map
+        m = folium.Map(
+            location=[37.65, -122.35],
+            zoom_start=10,
+            tiles='CartoDB dark_matter'
+        )
+        
+        # Add heatmap if enabled
+        if show_heatmap:
             heat_data = []
-            # Use finer grid for better coverage (60x60 = 3600 points)
-            for lat in np.linspace(37.70, 37.83, 60):
-                for lon in np.linspace(-122.52, -122.35, 60):
-                    # Check if point is within SF county boundary
-                    point = Point(lon, lat)
-                    if sf_boundary.contains(point):
-                        dist = calculate_distance(lat, lon, epicenter_lat, epicenter_lon)
-                        pga = earthquake.get_ground_acceleration(dist)
-                        if pga > 0.0003:
-                            heat_data.append([lat, lon, pga * 200])
-
+            for lat in np.linspace(37.4, 37.85, 50):
+                for lon in np.linspace(-122.55, -122.0, 50):
+                    dist = calculate_distance(lat, lon, epicenter_lat, epicenter_lon)
+                    pga = earthquake.get_ground_acceleration(dist)
+                    if pga > 0.001:
+                        heat_data.append([lat, lon, pga * 200])
+            
             plugins.HeatMap(
                 heat_data,
-                min_opacity=0.4,
+                min_opacity=0.3,
                 max_opacity=0.8,
-                radius=18,
-                blur=20,
+                radius=15,
+                blur=18,
                 gradient={0.0: '#00ff00', 0.25: '#adff2f', 0.5: '#ffff00',
                          0.65: '#ffa500', 0.8: '#ff4500', 1.0: '#8b0000'}
             ).add_to(m)
-
-            # Optionally add SF county boundary outline
-            folium.GeoJson(
-                {
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [list(sf_boundary.exterior.coords)]
-                    }
-                },
-                style_function=lambda x: {
-                    'fillColor': 'transparent',
-                    'color': '#ffffff',
-                    'weight': 2,
-                    'dashArray': '5, 5',
-                    'opacity': 0.6
-                }
-            ).add_to(m)
-
-        # Animation: Wave circles if enabled
-        if play_animation:
-            # P-wave (faster, blue)
-            p_wave_velocity = 6.0  # km/s
-            p_radius_km = p_wave_velocity * time_step
-            if p_radius_km > 0.1:  # Show if there's any meaningful radius
-                folium.Circle(
-                    location=[epicenter_lat, epicenter_lon],
-                    radius=p_radius_km * 1000,  # convert to meters
-                    color='#4169E1',
-                    fill=False,
-                    weight=3,
-                    opacity=0.8,
-                    dash_array='5, 5',
-                    popup=f"P-wave at {time_step:.1f}s<br>Radius: {p_radius_km:.1f} km"
-                ).add_to(m)
-
-            # S-wave (slower, red - main damage)
-            s_wave_velocity = 3.5  # km/s
-            s_radius_km = s_wave_velocity * time_step
-            if s_radius_km > 0.1:
-                folium.Circle(
-                    location=[epicenter_lat, epicenter_lon],
-                    radius=s_radius_km * 1000,
-                    color='#FF4500',
-                    fill=True,
-                    fillColor='#FF4500',
-                    fillOpacity=0.15,
-                    weight=4,
-                    opacity=0.9,
-                    popup=f"S-wave (shaking) at {time_step:.1f}s<br>Radius: {s_radius_km:.1f} km"
-                ).add_to(m)
-
-        # Epicenter
+        
+        # Epicenter marker
         folium.Marker(
             location=[epicenter_lat, epicenter_lon],
-            popup=f"<b>EPICENTER</b><br>M{magnitude:.1f} @ {depth}km depth<br>Time: {time_step:.1f}s" if play_animation else f"<b>EPICENTER</b><br>M{magnitude:.1f} @ {depth}km depth",
+            popup=f"<b>EPICENTER</b><br>M{magnitude:.1f} @ {depth}km depth",
             icon=folium.Icon(color='red', icon='star', prefix='fa')
         ).add_to(m)
-
-        # Distance reference circles with labels (only show if not animating)
-        if not play_animation:
-            for radius_km, label_pos in [(5, 'top'), (10, 'middle'), (15, 'bottom')]:
-                circle = folium.Circle(
-                    location=[epicenter_lat, epicenter_lon],
-                    radius=radius_km * 1000,
-                    color='#ff6b6b',
-                    fill=False,
-                    weight=2,
-                    opacity=0.6,
-                    dash_array='8, 4',
-                    popup=f"{radius_km}km from epicenter"
-                ).add_to(m)
-
-                # Add distance label
-                offset_lat = epicenter_lat + (radius_km / 111.0) if label_pos == 'top' else epicenter_lat
-                folium.Marker(
-                    location=[offset_lat, epicenter_lon + (radius_km / 111.0 / np.cos(np.radians(epicenter_lat)))],
-                    icon=folium.DivIcon(html=f"""
-                        <div style="background: rgba(255,107,107,0.8);
-                                    color: white;
-                                    padding: 4px 8px;
-                                    border-radius: 4px;
-                                    font-weight: bold;
-                                    font-size: 11px;
-                                    border: 2px solid #fff;">
-                            {radius_km}km
-                        </div>
-                    """)
-                ).add_to(m)
-
+        
+        # Distance circles
+        for radius_km in [10, 20, 30]:
+            folium.Circle(
+                location=[epicenter_lat, epicenter_lon],
+                radius=radius_km * 1000,
+                color='#ff6b6b',
+                fill=False,
+                weight=2,
+                opacity=0.5,
+                dash_array='5, 5'
+            ).add_to(m)
+        
         # Buildings
-        # Import time-dependent damage function if animating
-        if play_animation:
-            from earthquake_animation import calculate_time_dependent_damage
-
         for _, row in df.iterrows():
             building = next(b for b in buildings if b.id == row['building_id'])
-
-            # Calculate time-dependent damage if animating
-            if play_animation:
-                time_damage = calculate_time_dependent_damage(building, earthquake, time_step)
-                color = time_damage['color']
-                current_damage = time_damage['damage_percent']
-                damage_state = time_damage['damage_state']
-                is_shaking = time_damage.get('is_shaking', False)
-                radius_multiplier = 1.5 if is_shaking else 1.0
-            else:
-                color = damage_colors.get(row['damage_state'], '#808080')
-                current_damage = row['damage_percent']
-                damage_state = row['damage_state']
-                is_shaking = False
-                radius_multiplier = 1.0
-
+            
+            # Determine color based on selection
+            if color_by == "Physical Damage":
+                value = row['physical_damage_percent']
+                colors = {
+                    "None": '#00ff00', "Slight": '#adff2f', "Moderate": '#ffff00',
+                    "Extensive": '#ffa500', "Severe": '#ff4500', "Collapse": '#8b0000'
+                }
+                color = colors.get(row['damage_state'], '#808080')
+            elif color_by == "Social Vulnerability":
+                value = row['social_vulnerability_multiplier']
+                if value < 1.2:
+                    color = '#00ff00'
+                elif value < 1.4:
+                    color = '#ffff00'
+                elif value < 1.6:
+                    color = '#ffa500'
+                else:
+                    color = '#ff4500'
+            elif color_by == "Combined Vulnerability":
+                value = row['combined_vulnerability_score']
+                if value < 20:
+                    color = '#00ff00'
+                elif value < 40:
+                    color = '#ffff00'
+                elif value < 60:
+                    color = '#ffa500'
+                else:
+                    color = '#ff4500'
+            else:  # Recovery Time
+                value = row['estimated_recovery_days']
+                if value < 30:
+                    color = '#00ff00'
+                elif value < 90:
+                    color = '#ffff00'
+                elif value < 180:
+                    color = '#ffa500'
+                else:
+                    color = '#ff4500'
+            
+            # Create detailed popup
             popup_html = f"""
-            <div style="width: 240px; background: #1a1f3a; color: white;
-                        padding: 12px; border-radius: 8px; border: 3px solid {color};">
-                <h4 style="margin: 0 0 8px 0; color: {color}; font-size: 1.1rem;">
+            <div style="width: 280px; background: #1a1f3a; color: white;
+                        padding: 15px; border-radius: 10px; border: 3px solid {color};">
+                <h4 style="margin: 0 0 10px 0; color: {color}; font-size: 1.15rem;">
                     {building.name}
                 </h4>
-                <div style="border-top: 1px solid #444; padding-top: 8px;">
-                    <p style="margin: 4px 0;"><b>Type:</b> {building.building_type.replace('_', ' ').title()}</p>
-                    <p style="margin: 4px 0;"><b>Height:</b> {building.height_stories} stories</p>
-                    <p style="margin: 4px 0;"><b>Built:</b> {building.year_built}</p>
+                <div style="border-top: 1px solid #444; padding-top: 10px;">
+                    <p style="margin: 5px 0;"><b>Type:</b> {building.building_type.replace('_', ' ').title()}</p>
+                    <p style="margin: 5px 0;"><b>Height:</b> {building.height_stories} stories</p>
+                    <p style="margin: 5px 0;"><b>Built:</b> {building.year_built}</p>
                 </div>
-                <div style="border-top: 1px solid #444; margin-top: 8px; padding-top: 8px;">
-                    <p style="margin: 4px 0;"><b>Distance:</b> {row['distance_km']:.2f} km</p>
-                    <p style="margin: 4px 0;"><b>Peak Accel:</b> {row['pga_g']:.4f}g</p>
-                    <p style="margin: 4px 0;"><b>MMI:</b> {row['mmi']}</p>
+                <div style="border-top: 1px solid #444; margin-top: 10px; padding-top: 10px;">
+                    <p style="margin: 5px 0;"><b>Physical Damage:</b> {row['physical_damage_percent']:.1f}%</p>
+                    <p style="margin: 5px 0;"><b>Damage State:</b> {row['damage_state']}</p>
+                    <p style="margin: 5px 0;"><b>Distance:</b> {row['distance_km']:.2f} km</p>
+                    <p style="margin: 5px 0;"><b>Peak Accel:</b> {row['pga_g']:.4f}g</p>
                 </div>
-                <div style="background: {color}; padding: 10px; margin-top: 8px;
+                <div style="border-top: 1px solid #444; margin-top: 10px; padding-top: 10px;">
+                    <p style="margin: 5px 0; color: #ffd700;"><b>SOCIAL VULNERABILITY</b></p>
+                    <p style="margin: 5px 0;"><b>Elderly:</b> {row['elderly_percent']:.1f}%</p>
+                    <p style="margin: 5px 0;"><b>Poverty:</b> {row['poverty_percent']:.1f}%</p>
+                    <p style="margin: 5px 0;"><b>Density:</b> {row['population_density']:,.0f}/mi²</p>
+                    <p style="margin: 5px 0;"><b>SoVI Score:</b> {row['sovi_score']:.2f}</p>
+                    <p style="margin: 5px 0;"><b>Vuln. Multiplier:</b> {row['social_vulnerability_multiplier']:.2f}x</p>
+                </div>
+                <div style="background: {color}; padding: 12px; margin-top: 10px;
                             border-radius: 6px; text-align: center;">
-                    <p style="margin: 0; font-weight: bold; font-size: 1.2rem;
-                              color: {'white' if damage_state in ['Severe', 'Collapse'] else 'black'};">
-                        {damage_state.upper()}: {current_damage:.1f}%
-                        {' (SHAKING)' if play_animation and time_step > 0 and is_shaking else ''}
+                    <p style="margin: 0; font-weight: bold; font-size: 1.1rem; color: white;">
+                        Recovery: {row['estimated_recovery_days']:.0f} days
                     </p>
                 </div>
             </div>
             """
-
-            radius = (7 + (building.height_stories / 4)) * radius_multiplier
-
+            
+            radius = 7 + (building.height_stories / 3)
+            
             folium.CircleMarker(
                 location=[building.latitude, building.longitude],
                 radius=radius,
-                popup=folium.Popup(popup_html, max_width=300),
+                popup=folium.Popup(popup_html, max_width=320),
                 tooltip=building.name if show_labels else None,
                 color='#000',
                 fillColor=color,
                 fillOpacity=0.85,
-                weight=2.5
+                weight=2
             ).add_to(m)
-
-        # Render map
-        st_folium(m, width=None, height=650, returned_objects=[])
-
+        
+        st_folium(m, width=None, height=700, returned_objects=[])
+    
     with viz_col2:
-        # Damage distribution panel
-        st.markdown("#### DAMAGE LEVELS")
-
-        # Calculate current damage distribution (time-dependent if animating)
-        if play_animation and time_step > 0:
-            from earthquake_animation import calculate_time_dependent_damage
-            current_damage_states = []
-            for _, row in df.iterrows():
-                building = next(b for b in buildings if b.id == row['building_id'])
-                time_damage = calculate_time_dependent_damage(building, earthquake, time_step)
-                current_damage_states.append(time_damage['damage_state'])
-            damage_counts = pd.Series(current_damage_states).value_counts()
-        else:
-            damage_counts = df['damage_state'].value_counts()
-
+        st.markdown("### 📈 Distribution")
+        
+        # Damage state distribution
+        damage_counts = df['damage_state'].value_counts()
+        damage_colors_chart = {
+            "None": '#00ff00', "Slight": '#adff2f', "Moderate": '#ffff00',
+            "Extensive": '#ffa500', "Severe": '#ff4500', "Collapse": '#8b0000'
+        }
+        
         for state in ["None", "Slight", "Moderate", "Extensive", "Severe", "Collapse"]:
             count = damage_counts.get(state, 0)
             if count > 0:
                 pct = (count / len(df)) * 100
-                color = damage_colors[state]
+                color = damage_colors_chart[state]
                 st.markdown(f"""
-                    <div class='legend-item' style='border-left-color: {color};'>
-                        <div class='legend-color' style='background: {color};'></div>
-                        <div>
-                            <strong style='color: #fff;'>{state}</strong><br>
-                            <small style='color: #b0bec5;'>{count} bldg ({pct:.0f}%)</small>
-                        </div>
+                    <div style='background: {color}; padding: 10px; margin: 5px 0;
+                                border-radius: 6px; color: black; font-weight: bold;'>
+                        {state}: {count} ({pct:.0f}%)
                     </div>
                 """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        st.markdown("### 🎯 Color Legend")
+        
+        if color_by == "Physical Damage":
+            st.markdown("""
+            - 🟢 None/Slight
+            - 🟡 Moderate
+            - 🟠 Extensive
+            - 🔴 Severe/Collapse
+            """)
+        elif color_by == "Social Vulnerability":
+            st.markdown("""
+            - 🟢 Low (<1.2x)
+            - 🟡 Moderate (1.2-1.4x)
+            - 🟠 High (1.4-1.6x)
+            - 🔴 Very High (>1.6x)
+            """)
+        elif color_by == "Combined Vulnerability":
+            st.markdown("""
+            - 🟢 Low (<20)
+            - 🟡 Moderate (20-40)
+            - 🟠 High (40-60)
+            - 🔴 Critical (>60)
+            """)
+        else:  # Recovery Time
+            st.markdown("""
+            - 🟢 <30 days
+            - 🟡 30-90 days
+            - 🟠 90-180 days
+            - 🔴 >180 days
+            """)
+    
+    # Detailed analysis tabs
+    st.markdown("---")
+    st.markdown("### 🔍 Detailed Analysis")
+    
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📊 Vulnerability Analysis", 
+        "🏘️ High-Risk Communities", 
+        "📈 Recovery Projections",
+        "📋 Data Table"
+    ])
+    
+    with tab1:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### Physical vs Social Vulnerability")
+            fig, ax = plt.subplots(figsize=(8, 6))
+            scatter = ax.scatter(
+                df['physical_damage_percent'],
+                df['social_vulnerability_multiplier'],
+                c=df['combined_vulnerability_score'],
+                s=df['population_density']/50,
+                alpha=0.7,
+                cmap='YlOrRd',
+                edgecolors='black',
+                linewidth=1
+            )
+            ax.set_xlabel('Physical Damage (%)', fontsize=11, fontweight='bold')
+            ax.set_ylabel('Social Vulnerability Multiplier', fontsize=11, fontweight='bold')
+            ax.set_title('Vulnerability Intersection\n(size = population density)', fontsize=12, fontweight='bold')
+            ax.grid(True, alpha=0.3)
+            plt.colorbar(scatter, ax=ax, label='Combined Vulnerability')
+            st.pyplot(fig)
+            plt.close()
+        
+        with col2:
+            st.markdown("#### Recovery Time Distribution")
+            fig, ax = plt.subplots(figsize=(8, 6))
+            recovery_bins = [0, 30, 90, 180, 365, 1000]
+            recovery_labels = ['<30d', '30-90d', '90-180d', '180-365d', '>365d']
+            df['recovery_category'] = pd.cut(df['estimated_recovery_days'], 
+                                            bins=recovery_bins, labels=recovery_labels)
+            recovery_counts = df['recovery_category'].value_counts().sort_index()
+            colors = ['#00ff00', '#adff2f', '#ffff00', '#ffa500', '#ff4500']
+            ax.bar(range(len(recovery_counts)), recovery_counts.values, 
+                  color=colors[:len(recovery_counts)], edgecolor='black', linewidth=1.5)
+            ax.set_xticks(range(len(recovery_counts)))
+            ax.set_xticklabels(recovery_counts.index, rotation=45)
+            ax.set_ylabel('Number of Buildings', fontsize=11, fontweight='bold')
+            ax.set_title('Estimated Recovery Timeline', fontsize=12, fontweight='bold')
+            ax.grid(True, alpha=0.3, axis='y')
+            st.pyplot(fig)
+            plt.close()
+    
+    with tab2:
+        st.markdown("#### Buildings in High-Risk Communities")
+        high_risk = df[
+            (df['damage_state'].isin(['Extensive', 'Severe', 'Collapse'])) &
+            ((df['elderly_percent'] > 25) | (df['poverty_percent'] > 15) | (df['sovi_score'] > 0.7))
+        ].sort_values('combined_vulnerability_score', ascending=False)
+        
+        if len(high_risk) > 0:
+            st.markdown(f"""
+            **Found {len(high_risk)} buildings with extensive+ damage in vulnerable communities:**
+            - Average elderly population: **{high_risk['elderly_percent'].mean():.1f}%**
+            - Average poverty rate: **{high_risk['poverty_percent'].mean():.1f}%**
+            - Average SoVI score: **{high_risk['sovi_score'].mean():.2f}**
+            - Average recovery time: **{high_risk['estimated_recovery_days'].mean():.0f} days**
+            """)
+            
+            display_cols = ['building_name', 'damage_state', 'physical_damage_percent', 
+                          'elderly_percent', 'poverty_percent', 'sovi_score', 
+                          'estimated_recovery_days']
+            st.dataframe(
+                high_risk[display_cols].round(2),
+                use_container_width=True,
+                height=400
+            )
+        else:
+            st.info("No high-risk communities identified with extensive+ damage in this scenario.")
+    
+    with tab3:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### Building Age vs Recovery Time")
+            building_ages = {b.id: 2025 - b.year_built for b in buildings}
+            df_copy = df.copy()
+            df_copy['building_age'] = df_copy['building_id'].map(building_ages)
+            
+            fig, ax = plt.subplots(figsize=(8, 6))
+            for state, color in [('Severe', 'red'), ('Extensive', 'orange'), 
+                                ('Moderate', 'yellow'), ('Slight', 'green')]:
+                state_data = df_copy[df_copy['damage_state'] == state]
+                if len(state_data) > 0:
+                    ax.scatter(state_data['building_age'], state_data['estimated_recovery_days'],
+                             label=state, c=color, s=80, alpha=0.7, edgecolors='black')
+            
+            ax.set_xlabel('Building Age (years)', fontsize=11, fontweight='bold')
+            ax.set_ylabel('Recovery Time (days)', fontsize=11, fontweight='bold')
+            ax.set_title('Age, Damage, and Recovery', fontsize=12, fontweight='bold')
+            ax.legend()
+            ax.grid(True, alpha=0.3)
+            st.pyplot(fig)
+            plt.close()
+        
+        with col2:
+            st.markdown("#### County Comparison")
+            df_copy = df.copy()
+            df_copy['county'] = df_copy['building_id'].apply(
+                lambda x: 'San Francisco' if next(b for b in buildings if b.id == x).latitude > 37.65 
+                else 'San Mateo'
+            )
+            
+            county_stats = df_copy.groupby('county').agg({
+                'physical_damage_percent': 'mean',
+                'social_vulnerability_multiplier': 'mean',
+                'estimated_recovery_days': 'mean'
+            }).round(1)
+            
+            st.markdown("**Average Metrics by County:**")
+            st.dataframe(county_stats, use_container_width=True)
+            
+            if 'San Francisco' in county_stats.index and 'San Mateo' in county_stats.index:
+                st.markdown(f"""
+                - **San Francisco**: {county_stats.loc['San Francisco', 'physical_damage_percent']:.1f}% avg damage, 
+                  {county_stats.loc['San Francisco', 'estimated_recovery_days']:.0f} day avg recovery
+                - **San Mateo**: {county_stats.loc['San Mateo', 'physical_damage_percent']:.1f}% avg damage,
+                  {county_stats.loc['San Mateo', 'estimated_recovery_days']:.0f} day avg recovery
+                """)
+    
+    with tab4:
+        st.markdown("#### Complete Simulation Results")
+        st.dataframe(
+            df[[
+                'building_name', 'building_type', 'stories', 'year_built',
+                'distance_km', 'pga_g', 'mmi', 'damage_state', 
+                'physical_damage_percent', 'social_vulnerability_multiplier',
+                'combined_vulnerability_score', 'elderly_percent', 
+                'poverty_percent', 'sovi_score', 'estimated_recovery_days'
+            ]].round(2),
+            use_container_width=True,
+            height=500
+        )
+        
+        # Download button
+        csv = df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Full Dataset (CSV)",
+            data=csv,
+            file_name=f"earthquake_simulation_M{magnitude:.1f}.csv",
+            mime="text/csv"
+        )
 
-        st.markdown("<br>", unsafe_allow_html=True)
+else:
+    # Welcome screen
+    st.markdown("""
+    ## 🎯 About This Simulator
+    
+    This interactive tool demonstrates the integration of **physical earthquake hazards** 
+    with **social vulnerability factors** for San Francisco and San Mateo Counties.
+    
+    ### Key Features:
+    - ⚡ **Physics-Based Modeling**: Boore-Atkinson (2008) ground motion attenuation
+    - 🏘️ **Social Vulnerability**: Elderly populations, poverty rates, population density, SoVI scores
+    - 🏗️ **Building Assessment**: FEMA HAZUS damage classification across 25 representative structures
+    - 📊 **Recovery Projections**: Social factors affect recovery timeline estimates
+    - 🗺️ **Interactive Mapping**: Visualize spatial patterns of vulnerability
+    
+    ### Based On:
+    - Cutter et al. (2003) Social Vulnerability Framework
+    - FEMA HAZUS Methodology
+    - California Geological Survey Fault Data
+    - U.S. Census Bureau 2024 ACS Data
+    
+    ### Usage:
+    1. **Configure** earthquake parameters in the sidebar
+    2. **Select** visualization options
+    3. **Click** "RUN EARTHQUAKE SIMULATION"
+    4. **Explore** results through interactive maps and charts
+    
+    ---
+    
+    **Use the sidebar to configure your simulation and click the button above to begin! 👈**
+    """)
 
-        # Map legend
-        st.markdown("#### VISUALIZATION KEY")
-        st.markdown("""
-            <div style='font-size: 0.9rem; line-height: 1.8; color: #e8eaf6;'>
-            <b style='color: #ffd700;'>Heat Colors:</b><br>
-            • <span style='color: #00ff00;'>Green</span> = Low shaking<br>
-            • <span style='color: #ffff00;'>Yellow</span> = Moderate<br>
-            • <span style='color: #ffa500;'>Orange</span> = Strong<br>
-            • <span style='color: #ff4500;'>Red</span> = Severe<br>
-            <br>
-            <b style='color: #ffd700;'>Circles:</b><br>
-            • Dashed rings = Distance zones<br>
-            • Filled dots = Buildings<br>
-            • Size = Building height<br>
-            <br>
-            <b style='color: #ffd700;'>Click markers</b> for details
-            </div>
-        """, unsafe_allow_html=True)
-
+# Footer
+st.markdown("---")
+st.markdown("""
+    <div style='text-align: center; color: #b0bec5; font-size: 0.9rem;'>
+        <p>Earthquake Vulnerability Simulator | SF & San Mateo Counties</p>
+        <p>Supporting GIS Vulnerability Analysis Research</p>
+    </div>
+""", unsafe_allow_html=True)
