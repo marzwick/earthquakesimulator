@@ -1,7 +1,7 @@
 """
 San Francisco Bay Area Earthquake Vulnerability Simulator
 Interactive tool demonstrating physical + social vulnerability
-Supports GIS vulnerability analysis for SF and San Mateo Counties
+Professional version - No emojis
 """
 
 import streamlit as st
@@ -11,6 +11,8 @@ from streamlit_folium import st_folium
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+
+# Import from earthquake_simulation.py
 from earthquake_simulation import (
     Building, Earthquake, create_sf_buildings,
     calculate_damage, calculate_distance
@@ -19,7 +21,7 @@ from earthquake_simulation import (
 # Page configuration
 st.set_page_config(
     page_title="SF Bay Earthquake Vulnerability Simulator",
-    page_icon="⚡",
+    page_icon="🌉",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -74,24 +76,24 @@ st.markdown("""
                 padding: 2rem; margin: -1rem -1rem 2rem -1rem; 
                 border-bottom: 4px solid #ffd700;'>
         <h1 style='margin: 0; color: white !important;'>
-            🌉 SF Bay Area Earthquake Vulnerability Simulator
+            SF Bay Area Earthquake Vulnerability Simulator
         </h1>
         <p style='color: #e0e0e0; font-size: 1.1rem; margin: 0.5rem 0 0 0;'>
-            Interactive Analysis of Physical Hazard + Social Vulnerability
+            Interactive Analysis of Physical Hazard and Social Vulnerability
         </p>
     </div>
 """, unsafe_allow_html=True)
 
 # Sidebar controls
 with st.sidebar:
-    st.markdown("### ⚙️ Simulation Controls")
+    st.markdown("### Simulation Controls")
     
     # Earthquake parameters
     magnitude = st.slider("Earthquake Magnitude (Mw)", 4.0, 8.0, 7.0, 0.1)
     depth = st.slider("Focal Depth (km)", 1, 30, 10, 1)
     
     st.markdown("---")
-    st.markdown("### 📍 Epicenter Location")
+    st.markdown("### Epicenter Location")
     
     location_preset = st.selectbox(
         "Select Location",
@@ -103,7 +105,7 @@ with st.sidebar:
     if location_preset == "Financial District (SF)":
         epicenter_lat, epicenter_lon = 37.7949, -122.4194
     elif location_preset == "San Andreas Fault":
-        epicenter_lat, epicenter_lon = 37.7089, -122.4664  # Near Daly City
+        epicenter_lat, epicenter_lon = 37.7089, -122.4664
     elif location_preset == "Hayward Fault":
         epicenter_lat, epicenter_lon = 37.6688, -122.0808
     elif location_preset == "Pacifica Coastal":
@@ -115,7 +117,7 @@ with st.sidebar:
         epicenter_lon = st.number_input("Longitude", value=-122.4194, format="%.4f")
     
     st.markdown("---")
-    st.markdown("### 🎨 Visualization Options")
+    st.markdown("### Visualization Options")
     
     show_heatmap = st.checkbox("Show Ground Motion Heatmap", value=True)
     show_labels = st.checkbox("Show Building Labels", value=False)
@@ -125,19 +127,19 @@ with st.sidebar:
     )
     
     st.markdown("---")
-    st.markdown("### 🔬 Social Vulnerability Factors")
+    st.markdown("### Social Vulnerability Factors")
     st.markdown("""
-    This simulator integrates:
-    - 👴 Elderly population %
-    - 💰 Poverty rates
-    - 🏘️ Population density
-    - 📊 Social Vulnerability Index (SoVI)
+    Integrated factors:
+    - Elderly population percentage
+    - Poverty rates
+    - Population density
+    - Social Vulnerability Index (SoVI)
     
     Based on Cutter et al. (2003) framework
     """)
 
 # Run simulation button
-if st.button("🌋 RUN EARTHQUAKE SIMULATION", use_container_width=True):
+if st.button("RUN EARTHQUAKE SIMULATION", use_container_width=True):
     st.session_state.simulation_run = True
     st.session_state.earthquake = Earthquake(
         magnitude=magnitude,
@@ -162,7 +164,7 @@ if hasattr(st.session_state, 'simulation_run') and st.session_state.simulation_r
     buildings = st.session_state.buildings
     
     # Key metrics
-    st.markdown("### 📊 Impact Summary")
+    st.markdown("### Impact Summary")
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
@@ -190,7 +192,7 @@ if hasattr(st.session_state, 'simulation_run') and st.session_state.simulation_r
     viz_col1, viz_col2 = st.columns([3, 1])
     
     with viz_col1:
-        st.markdown("### 🗺️ Interactive Damage Map")
+        st.markdown("### Interactive Damage Map")
         
         # Create map
         m = folium.Map(
@@ -244,7 +246,6 @@ if hasattr(st.session_state, 'simulation_run') and st.session_state.simulation_r
             
             # Determine color based on selection
             if color_by == "Physical Damage":
-                value = row['physical_damage_percent']
                 colors = {
                     "None": '#00ff00', "Slight": '#adff2f', "Moderate": '#ffff00',
                     "Extensive": '#ffa500', "Severe": '#ff4500', "Collapse": '#8b0000'
@@ -285,7 +286,7 @@ if hasattr(st.session_state, 'simulation_run') and st.session_state.simulation_r
             popup_html = f"""
             <div style="width: 280px; background: #1a1f3a; color: white;
                         padding: 15px; border-radius: 10px; border: 3px solid {color};">
-                <h4 style="margin: 0 0 10px 0; color: {color}; font-size: 1.15rem;">
+                <h4 style="margin: 0 0 10px 0; color: {color};">
                     {building.name}
                 </h4>
                 <div style="border-top: 1px solid #444; padding-top: 10px;">
@@ -304,12 +305,12 @@ if hasattr(st.session_state, 'simulation_run') and st.session_state.simulation_r
                     <p style="margin: 5px 0;"><b>Elderly:</b> {row['elderly_percent']:.1f}%</p>
                     <p style="margin: 5px 0;"><b>Poverty:</b> {row['poverty_percent']:.1f}%</p>
                     <p style="margin: 5px 0;"><b>Density:</b> {row['population_density']:,.0f}/mi²</p>
-                    <p style="margin: 5px 0;"><b>SoVI Score:</b> {row['sovi_score']:.2f}</p>
+                    <p style="margin: 5px 0;"><b>SoVI:</b> {row['sovi_score']:.2f}</p>
                     <p style="margin: 5px 0;"><b>Vuln. Multiplier:</b> {row['social_vulnerability_multiplier']:.2f}x</p>
                 </div>
                 <div style="background: {color}; padding: 12px; margin-top: 10px;
                             border-radius: 6px; text-align: center;">
-                    <p style="margin: 0; font-weight: bold; font-size: 1.1rem; color: white;">
+                    <p style="margin: 0; font-weight: bold; color: white;">
                         Recovery: {row['estimated_recovery_days']:.0f} days
                     </p>
                 </div>
@@ -332,7 +333,7 @@ if hasattr(st.session_state, 'simulation_run') and st.session_state.simulation_r
         st_folium(m, width=None, height=700, returned_objects=[])
     
     with viz_col2:
-        st.markdown("### 📈 Distribution")
+        st.markdown("### Distribution")
         
         # Damage state distribution
         damage_counts = df['damage_state'].value_counts()
@@ -354,46 +355,46 @@ if hasattr(st.session_state, 'simulation_run') and st.session_state.simulation_r
                 """, unsafe_allow_html=True)
         
         st.markdown("---")
-        st.markdown("### 🎯 Color Legend")
+        st.markdown("### Color Legend")
         
         if color_by == "Physical Damage":
             st.markdown("""
-            - 🟢 None/Slight
-            - 🟡 Moderate
-            - 🟠 Extensive
-            - 🔴 Severe/Collapse
+            - Green: None/Slight
+            - Yellow: Moderate
+            - Orange: Extensive
+            - Red: Severe/Collapse
             """)
         elif color_by == "Social Vulnerability":
             st.markdown("""
-            - 🟢 Low (<1.2x)
-            - 🟡 Moderate (1.2-1.4x)
-            - 🟠 High (1.4-1.6x)
-            - 🔴 Very High (>1.6x)
+            - Green: Low (less than 1.2x)
+            - Yellow: Moderate (1.2-1.4x)
+            - Orange: High (1.4-1.6x)
+            - Red: Very High (greater than 1.6x)
             """)
         elif color_by == "Combined Vulnerability":
             st.markdown("""
-            - 🟢 Low (<20)
-            - 🟡 Moderate (20-40)
-            - 🟠 High (40-60)
-            - 🔴 Critical (>60)
+            - Green: Low (less than 20)
+            - Yellow: Moderate (20-40)
+            - Orange: High (40-60)
+            - Red: Critical (greater than 60)
             """)
         else:  # Recovery Time
             st.markdown("""
-            - 🟢 <30 days
-            - 🟡 30-90 days
-            - 🟠 90-180 days
-            - 🔴 >180 days
+            - Green: Less than 30 days
+            - Yellow: 30-90 days
+            - Orange: 90-180 days
+            - Red: Greater than 180 days
             """)
     
     # Detailed analysis tabs
     st.markdown("---")
-    st.markdown("### 🔍 Detailed Analysis")
+    st.markdown("### Detailed Analysis")
     
     tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Vulnerability Analysis", 
-        "🏘️ High-Risk Communities", 
-        "📈 Recovery Projections",
-        "📋 Data Table"
+        "Vulnerability Analysis", 
+        "High-Risk Communities", 
+        "Recovery Projections",
+        "Data Table"
     ])
     
     with tab1:
@@ -533,7 +534,7 @@ if hasattr(st.session_state, 'simulation_run') and st.session_state.simulation_r
         # Download button
         csv = df.to_csv(index=False)
         st.download_button(
-            label="📥 Download Full Dataset (CSV)",
+            label="Download Full Dataset (CSV)",
             data=csv,
             file_name=f"earthquake_simulation_M{magnitude:.1f}.csv",
             mime="text/csv"
@@ -542,17 +543,17 @@ if hasattr(st.session_state, 'simulation_run') and st.session_state.simulation_r
 else:
     # Welcome screen
     st.markdown("""
-    ## 🎯 About This Simulator
+    ## About This Simulator
     
     This interactive tool demonstrates the integration of **physical earthquake hazards** 
     with **social vulnerability factors** for San Francisco and San Mateo Counties.
     
     ### Key Features:
-    - ⚡ **Physics-Based Modeling**: Boore-Atkinson (2008) ground motion attenuation
-    - 🏘️ **Social Vulnerability**: Elderly populations, poverty rates, population density, SoVI scores
-    - 🏗️ **Building Assessment**: FEMA HAZUS damage classification across 25 representative structures
-    - 📊 **Recovery Projections**: Social factors affect recovery timeline estimates
-    - 🗺️ **Interactive Mapping**: Visualize spatial patterns of vulnerability
+    - Physics-Based Modeling: Boore-Atkinson (2008) ground motion attenuation
+    - Social Vulnerability: Elderly populations, poverty rates, population density, SoVI scores
+    - Building Assessment: FEMA HAZUS damage classification across 25 representative structures
+    - Recovery Projections: Social factors affect recovery timeline estimates
+    - Interactive Mapping: Visualize spatial patterns of vulnerability
     
     ### Based On:
     - Cutter et al. (2003) Social Vulnerability Framework
@@ -568,7 +569,7 @@ else:
     
     ---
     
-    **Use the sidebar to configure your simulation and click the button above to begin! 👈**
+    **Use the sidebar to configure your simulation and click the button above to begin.**
     """)
 
 # Footer
