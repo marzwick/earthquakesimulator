@@ -11,8 +11,8 @@ from streamlit_folium import st_folium
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from earthquake_simulation_enhanced import (
-    Building, Earthquake, create_sf_san_mateo_buildings,
+from earthquake_simulation import (
+    Building, Earthquake, create_sf_san_mateo_buildings as create_sf_buildings,
     calculate_damage, calculate_distance
 )
 
